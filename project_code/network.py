@@ -2,7 +2,7 @@ import numpy as np
 import networkx as nx
 from qiskit import QuantumCircuit
 from qiskit_aer import AerSimulator
-from qiskit.circuit.library import GroverOperator, StatePreparation, EstimationCircuit
+from qiskit.circuit.library import GroverOperator, StatePreparation, PhaseEstimation
 
 # DESIGNING GENERAL GRAPH REPRESENTATION
 def create_sample_net():
@@ -38,7 +38,7 @@ def build_state_prep(graph):
 
     for idx, (u, v, data) in enumerate(graph.edges(data=True)):
         p = data['probability']
-        theta = 2 * np.archsin(np.sqrt(p))
+        theta = 2 * np.arcsin(np.sqrt(p))
         qc.ry(theta, idx)
     
     return qc
@@ -78,11 +78,11 @@ def build_oracle(graph):
                 qc.x(idx)
             control_qubits.append(idx)
     
-    qc.mcx(control_qubits, num_edges)
+        qc.mcx(control_qubits, num_edges)
 
-    for idx, bit in enumerate(reversed(state)):
-        if bit == '0':
-            qc.x(idx)
+        for idx, bit in enumerate(reversed(state)):
+            if bit == '0':
+                qc.x(idx)
 
     return qc
 
@@ -129,8 +129,8 @@ def classical_reliability_baseline(graph, trials=50000):
             if np.random.rand() < data['probability']:
                 sub_G.add_edge(u, v)
             
-            if nx.is_connected(sub_G):
-                successful_trials += 1
+        if nx.is_connected(sub_G):
+            successful_trials += 1
     
     return successful_trials / trials
 
