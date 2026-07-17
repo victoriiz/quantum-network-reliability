@@ -3,3 +3,4 @@ qiskit-aer>=0.13.0
 networkx>=3.0
 matplotlib>=3.5
 numpy>=1.22
+pennylane

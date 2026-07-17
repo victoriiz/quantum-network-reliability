@@ -101,20 +101,17 @@ def main():
     print("=" * 60)
 
     model = build_validation_model()
-    print(f"
-Model: {model.n_gpus} GPUs, {model.m} subsystems")
+    print(f"Model: {model.n_gpus} GPUs, {model.m} subsystems")
     print(f"Job: {len(model.job_gpus)} GPUs, min_healthy={model.min_healthy}")
 
     # 1. Exact ground truth
-    print("
-[1] Computing exact ground truth by enumeration...")
+    print("[1] Computing exact ground truth by enumeration...")
     p_exact, p_star_dict, fail_states = model.exact_pfail()
     print(f"    Exact P_fail = {p_exact:.6e}")
     print(f"    Number of failure states = {len(fail_states)} / {2**model.m}")
 
     # 2. Naive Monte Carlo
-    print("
-[2] Naive Monte Carlo...")
+    print("[2] Naive Monte Carlo...")
     naive = NaiveEstimator(model)
     n_samples = 200_000
     n_trials = 20
@@ -131,8 +128,7 @@ Model: {model.n_gpus} GPUs, {model.m} subsystems")
     print(f"    ESS: {m_naive['ESS']:.0f}")
 
     # 3. Classical tilting (grid search over scalar tilt)
-    print("
-[3] Classical per-subsystem tilting (scalar grid search)...")
+    print("[3] Classical per-subsystem tilting (scalar grid search)...")
     p_grid = np.linspace(0.02, 0.20, 20)
     best_p, best_vrf, best_est = TiltedEstimator.grid_search(
         model, n_samples=50_000, p_grid=p_grid, rng=np.random.default_rng(42)
@@ -152,8 +148,7 @@ Model: {model.n_gpus} GPUs, {model.m} subsystems")
     print(f"    ESS: {m_tilt['ESS']:.0f}")
 
     # 4. Quantum IS (exact statevector)
-    print("
-[4] Quantum IS (exact statevector, forward KL)...")
+    print("[4] Quantum IS (exact statevector, forward KL)...")
     print("    Training...")
     theta, loss_hist = train_exact(
         model, p_star_dict, n_layers=4, lr=0.15, n_steps=300, 
@@ -172,17 +167,15 @@ Model: {model.n_gpus} GPUs, {model.m} subsystems")
     print(f"    ESS: {m_quantum['ESS']:.0f}")
 
     # 5. Summary table
-    print("
-" + "=" * 60)
+    print("" + "=" * 60)
     print("SUMMARY")
     print("=" * 60)
     print(f"{'Method':<25} {'Bias':>10} {'VRF':>10} {'ESS':>10}")
     print("-" * 60)
     print(f"{'Naive MC':<25} {m_naive['rel_bias']*100:>9.2f}% {m_naive['VRF']:>10.1f}x {m_naive['ESS']:>10.0f}")
-    print(f"{'Tilt (p'= ' + f'{best_p:.3f})':<25} {m_tilt['rel_bias']*100:>9.2f}% {m_tilt['VRF']:>10.1f}x {m_tilt['ESS']:>10.0f}")
+    print(f"{f'Tilt (p={best_p:.3f})':<25} {m_tilt['rel_bias']*100:>9.2f}% {m_tilt['VRF']:>10.1f}x {m_tilt['ESS']:>10.0f}")
     print(f"{'Quantum IS (KL)':<25} {m_quantum['rel_bias']*100:>9.2f}% {m_quantum['VRF']:>10.1f}x {m_quantum['ESS']:>10.0f}")
-    print(f"
-Exact P_fail = {p_exact:.6e}")
+    print(f"Exact P_fail = {p_exact:.6e}")
 
 
 if __name__ == "__main__":
