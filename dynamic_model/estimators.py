@@ -1,11 +1,3 @@
-"""
-pipeline/estimators.py -- LAYERS 2, 3, 4, and the CEILING.
-
-NOTHING in this file mentions fault trees. It works against the model
-contract (.p, .failmask, .p_fail, .component_bits, .n_components), so it
-serves ANY static model unchanged. That model-agnosticism is the whole
-point of the separation.
-"""
 import numpy as np
 from scipy.optimize import minimize
 
