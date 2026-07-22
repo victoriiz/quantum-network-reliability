@@ -73,5 +73,8 @@ def tilt_family_ceiling(model, seed=0):
 # ===================== finding exact ceiling of "failure rate boost family" =============================
 # scale every failure rate a_i(x) -> min(1, lam*a_i(x))
 
-def boosted_Pmat(lam):
-    
+# TODO: adapt from experiments
+def boosted_Pmat(lam, m):
+    Q = np.zeros_like(P)
+    S = m.states
+
