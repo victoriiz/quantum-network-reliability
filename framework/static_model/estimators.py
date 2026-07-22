@@ -70,3 +70,31 @@ def tilt_family_ceiling(model, seed=0):
     var = exact_variance(model, p_star_tilt)
     vrf = model.p_fail * (1 - model.p_fail) / var
     return {"p_tilt": p_star_tilt, "vrf": vrf}
+
+ 
+def cross_entropy(model, rho=0.1, n_ce=20_000, n_iter=12, seed=0):
+    """Cross-Entropy adaptive per-component tilt.
+    Returns {'p_tilt', 'vrf', 'bias'}; audited against the exact P_fail.
+    rho    : elite quantile (fraction of 'most failed' samples kept)
+    n_ce   : samples per CE iteration
+    n_iter : number of adaptation rounds
+    """
+    import numpy as np
+    rng = np.random.default_rng(seed)
+    downs = (model.component_bits == 0).sum(axis=1)      # #down subsystems
+    p_tilt = model.cfg.p_fail.astype(float).copy()       # start at prior
+    for _ in range(n_iter):
+        q = tilt_proposal(model, p_tilt)
+        idx = rng.choice(model.n_states, size=n_ce, p=q)
+        fail = model.failmask[idx] == 1
+        if fail.sum() < 50:                              # too few failures: use elite quantile
+            thr = np.quantile(downs[idx], 1 - rho)
+            elite = idx[downs[idx] >= thr]
+            w = np.ones(len(elite))
+        else:
+            elite = idx[fail]
+            w = model.p[elite] / q[elite]                # CE likelihood-ratio weights
+        down_elite = (model.component_bits[elite] == 0).astype(float)
+        p_tilt = np.clip((w[:, None] * down_elite).sum(0) / w.sum(), 1e-3, 0.95)
+    r = audit(model, tilt_proposal(model, p_tilt), seed=seed)
+    return {"p_tilt": p_tilt, "vrf": r["vrf"], "bias": r["bias"]}

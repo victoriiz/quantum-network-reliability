@@ -70,11 +70,29 @@ def tilt_family_ceiling(model, seed=0):
     vrf = model.p_fail * (1 - model.p_fail) / var
     return {"p_tilt": p_star_tilt, "vrf": vrf}
 
-# ===================== finding exact ceiling of "failure rate boost family" =============================
-# scale every failure rate a_i(x) -> min(1, lam*a_i(x))
-
-# TODO: adapt from experiments
-def boosted_Pmat(lam, m):
-    Q = np.zeros_like(P)
-    S = m.states
+def exact_traj_ceiling(model, proposal_kernel, param_grid):
+    """Exact VRF ceiling over a family of trajectory proposals.
+    For each params in param_grid, build Q = proposal_kernel(model, params)
+    and evaluate the exact single-sample variance via the second-moment DP:
+        M_0(x) = 0
+        M_s(x) = sum_{y in F} R(x,y) + sum_{y not in F} R(x,y) M_{s-1}(y),
+        with R(x,y) = P(x,y)^2 / Q(x,y),  stopping at first entry to F.
+    Var = M_T(start) - P_fail^2.  Returns the best (params, vrf).
+    """
+    import numpy as np
+    P, in_F, start, T, pT = (model.Pmat, model.in_F, model.start_idx,
+                             model.T, model.p_fail)
+    best = {"params": None, "vrf": -np.inf}
+    for params in param_grid:
+        Q = proposal_kernel(model, params)
+        R = np.where(Q > 0, P * P / Q, 0.0)              # P^2/Q ratio matrix
+        M = np.zeros(model.n_states)
+        for _ in range(T):
+            M = R[:, in_F == 1].sum(axis=1) + R[:, in_F == 0] @ M[in_F == 0]
+            M[in_F == 1] = 0.0                           # never step from inside F
+        var = M[start] - pT ** 2
+        vrf = pT * (1 - pT) / var if var > 0 else np.inf
+        if vrf > best["vrf"]:
+            best = {"params": params, "vrf": float(vrf)}
+    return best
 
