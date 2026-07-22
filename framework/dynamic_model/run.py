@@ -29,18 +29,23 @@ def audit_trajectories(model, proposal, n_paths=50_000, n_trials=10, seed=0):
         for k in range(n_paths):
             x = model.start_idx
             logw = 0.0
-            failed = int(model.in_F[x])
+            #failed = int(model.in_F[x])
+            if model.in_F[x]:
+                ws[k] = 1.0
+                continue
+            failed = 0
+
             for step in range(model.T):
                 steps_left = model.T - step
                 q = proposal(x, steps_left) if proposal else P[x]
                 if q is None:
                     q = P[x]
                 y = rng.choice(model.n_states, p=q)
-                # accumulate weight ratio (guard q>0 on the chosen move)
                 logw += np.log(P[x, y] + 1e-300) - np.log(q[y] + 1e-300)
                 x = y
                 if model.in_F[x]:
                     failed = 1
+                    break
             ws[k] = np.exp(logw) * failed
         ests[t] = ws.mean()
         s1, s2 = ws.sum(), (ws ** 2).sum()
