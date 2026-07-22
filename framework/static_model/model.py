@@ -1,5 +1,5 @@
 """
-pipeline/model.py -- LAYER 1 only: the model.
+constucting the problem as a model.
 
 This is the ONLY file you rewrite for a new static problem. It exposes a
 minimal contract the rest of the pipeline depends on:

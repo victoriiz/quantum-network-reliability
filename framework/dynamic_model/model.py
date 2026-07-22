@@ -1,6 +1,6 @@
 """
-Same four layers, but LAYER 1 is now a Markov chain over T steps, solved
-by backward DP instead of enumeration. Layers 2-4 keep their shape.
+model is now a Markov chain over T steps, solved
+by backward DP instead of enumeration. 
 
 Contract the runner expects (mirror of the static one):
     .n_states, .T
