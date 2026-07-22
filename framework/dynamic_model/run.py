@@ -11,7 +11,7 @@ The zero-variance proposal is the h-transform (model.tilted_transition).
 Auditing IT is the correctness check: it should give ~zero variance.
 """
 import numpy as np
-from model import DynamicConfig, DynamicModel
+from framework.dynamic_model.classical_model import DynamicConfig, DynamicModel
 
 
 def audit_trajectories(model, proposal, n_paths=50_000, n_trials=10, seed=0):

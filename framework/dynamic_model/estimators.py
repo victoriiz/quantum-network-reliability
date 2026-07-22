@@ -58,8 +58,7 @@ def exact_variance(model, p_tilt):
 
 def tilt_family_ceiling(model, seed=0):
     """Optimize the per-component tilt on EXACT variance -> the provable
-    best VRF the whole product-tilt family can reach. No sampling.
-    This is the HONEST OPPONENT that makes trained results falsifiable."""
+    best VRF the whole product-tilt family can reach."""
     m = model.n_components
     x0 = np.clip(model.cfg.p_fail * 3, 1e-3, 0.5)      # sensible start
     # optimize log-variance for numerical stability; bounded in (0,1)
@@ -70,3 +69,9 @@ def tilt_family_ceiling(model, seed=0):
     var = exact_variance(model, p_star_tilt)
     vrf = model.p_fail * (1 - model.p_fail) / var
     return {"p_tilt": p_star_tilt, "vrf": vrf}
+
+# ===================== finding exact ceiling of "failure rate boost family" =============================
+# scale every failure rate a_i(x) -> min(1, lam*a_i(x))
+
+def boosted_Pmat(lam):
+    

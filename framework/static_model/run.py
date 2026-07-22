@@ -1,11 +1,8 @@
 """
 static_model/run.py -- ties the static model's layers into one run.
 
-Flow:  build model -> VALIDATE (fail loudly) -> self-check p* ->
+Flow:  build model -> validate -> self-check p* ->
         compute exact ceiling -> audit every proposal -> print table.
-
-To study a new instance, edit the config in `demo_instance()` (or import
-your own FaultTreeModel). The runner itself never changes.
 """
 import numpy as np
 from model import FaultTreeConfig, FaultTreeModel
