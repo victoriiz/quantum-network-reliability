@@ -1,46 +1,39 @@
 """
-quantum_assess.py -- plug a QUANTUM proposal into the static pipeline and
-assess it: same audit, same exact ceiling, multiple seeds.
+framework/static_model/quantum_assess.py
 
-The quantum circuit is a Layer-3 proposal like any other. This file is the
-experiment that fills the "???" row of the comparison table.
+Assess a quantum circuit proposal on the static fault-tree model, against
+the strongest classical opponents, on the same audit:
 
-Runs on the static FaultTreeModel (its measurement distribution over 2^m
-states IS a proposal). Uses a small model so training is fast enough to
-iterate. Requires pennylane; falls back to a classical "trained softmax"
-stand-in if pennylane is absent, so you can see the ASSESSMENT LOGIC even
-without the quantum backend.
+    naive MC  |  cross-entropy (adaptive IS)  |  exact tilt-family ceiling
+
+The quantum proposal is a Layer-3 proposal like any other; it is scored by
+the same audit (bias first, then VRF, then ESS) and judged against the
+exact ceiling. Multiple seeds test stability vs luck.
 """
 import numpy as np
-import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "pipeline"))
 from model import FaultTreeConfig, FaultTreeModel
 import estimators as est
 
 
 def rare_instance():
-    """A small, ACTUALLY-RARE instance (validated below)."""
+    """Small, calibrated-to-be-rare-AND-concentrated instance."""
     return FaultTreeModel(FaultTreeConfig(
         m=6,
         p_fail=np.array([0.04, 0.04, 0.03, 0.03, 0.02, 0.02]),
-        coverage={0:{0},1:{1},2:{2},3:{3},4:{4},5:{5}},
+        coverage={0: {0}, 1: {1}, 2: {2}, 3: {3}, 4: {4}, 5: {5}},
         n_gpu=6, job={0, 1, 2, 3, 4, 5},
-        min_healthy=3,
-        name="rare-6"))
+        min_healthy=3, name="rare-6"))
 
 
-# ---------------------------------------------------------------------
-# THE QUANTUM PROPOSAL.  q(b) = |<b|psi(theta)>|^2 from a trained circuit.
-# Trained by forward-KL to p* -- identical objective to the classical
-# pipeline, so the only thing being tested is the proposal family.
-# ---------------------------------------------------------------------
 def train_quantum_proposal(model, layers=3, steps=300, seed=0):
+    """q(b) = |<b|psi(theta)>|^2 from an RY+CNOT circuit, trained by
+    forward KL to p*. Returns the proposal vector, or None if PennyLane
+    is unavailable."""
     try:
         import pennylane as qml
         from pennylane import numpy as pnp
     except ImportError:
-        return None  
-
+        return None
     m = model.n_components
     pstar = est.ideal_proposal(model)
     dev = qml.device("default.qubit", wires=m)
@@ -65,47 +58,43 @@ def train_quantum_proposal(model, layers=3, steps=300, seed=0):
     return np.array(circuit(theta))
 
 
-# ---------------------------------------------------------------------
-# THE ASSESSMENT: multi-seed comparison vs the ceiling.
-# ---------------------------------------------------------------------
-def assess(model, n_seeds=5):
+def assess(model, n_seeds=5, seed0=0):
     v = model.validate()
     print(f"[{v['name']}] P_fail={v['p_fail']:.3e}  "
           f"fail states {v['n_fail_states']}/{v['n_states']}  "
-          f"usable={v['usable']}\n")
+          f"usable={v['usable']}")
     assert v["usable"], "instance not rare/concentrated -- fix before assessing"
 
+    # --- the strongest classical opponents ---
     ceil = est.tilt_family_ceiling(model)
-    print(f"exact tilt-family ceiling: {ceil['vrf']:.1f}x  "
-          f"(the opponent to beat)\n")
+    ce = est.cross_entropy(model, seed=seed0)
+    print(f"\nexact tilt-family ceiling : {ceil['vrf']:9.1f}x   (theoretical best "
+          f"of the product family)")
+    print(f"cross-entropy (adaptive)  : {ce['vrf']:9.1f}x   bias {ce['bias']*100:+.2f}%"
+          f"   (practical adaptive IS)\n")
 
-    # classical reference rows
-    print(f"{'proposal':<26}{'VRF (mean+/-sd)':>22}{'bias':>9}{'vs ceiling':>13}")
-    def line(name, q_list):
+    def audited(name, q_list):
         vrfs, biases = [], []
         for q in q_list:
             r = est.audit(model, q, n_samples=100_000, n_trials=5)
             vrfs.append(r["vrf"]); biases.append(r["bias"])
         vm, vs = np.mean(vrfs), np.std(vrfs)
-        verdict = ("BEATS" if vm > ceil["vrf"] else
-                   "~ties" if vm > 0.8 * ceil["vrf"] else "below")
-        print(f"{name:<26}{vm:>13.1f} +/-{vs:>5.1f}"
-              f"{np.mean(biases)*100:>+8.2f}%{verdict:>13}")
+        verdict = ("beats ceiling" if vm > ceil["vrf"] else
+                   "~ties ceiling" if vm > 0.8 * ceil["vrf"] else "below")
+        print(f"{name:<30}{vm:>11.1f} +/-{vs:>7.1f}"
+              f"{np.mean(biases)*100:>+8.2f}%   {verdict}")
 
-    line("naive MC", [est.naive_proposal(model)])
-    line("per-component tilt", [est.tilt_proposal(model, ceil["p_tilt"])])
-
-    qs = []
-    for s in range(n_seeds):
-        q = train_quantum_proposal(model, seed=s)
-        if q is None:
-            print("\n(pennylane not installed -- quantum row skipped; "
-                  "assessment logic shown for classical rows)")
-            return
-        qs.append(q)
-    line(f"QUANTUM circuit (n={n_seeds})", qs)
-    print(f"\nread: bias first (all must be ~0), then VRF vs the ceiling.")
-    print(f"the +/- on the quantum row tells you if it's STABLE or LUCKY.")
+    print(f"{'proposal':<30}{'VRF (mean+/-sd)':>18}{'bias':>9}")
+    audited("naive MC", [est.naive_proposal(model)])
+    qs = [train_quantum_proposal(model, seed=s) for s in range(n_seeds)]
+    if any(q is None for q in qs):
+        print("\n(PennyLane not installed -- quantum row skipped; classical "
+              "comparison shown)")
+        return
+    audited(f"QUANTUM circuit (n={n_seeds})", qs)
+    print(f"\nread: bias first (must be ~0), then VRF vs ceiling and CE.")
+    print(f"the +/- on the quantum row shows stability across seeds "
+          f"(large sd = lucky, not good).")
 
 
 if __name__ == "__main__":
