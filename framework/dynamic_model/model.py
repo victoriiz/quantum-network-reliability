@@ -96,17 +96,23 @@ class DynamicModel:
         w = self.Pmat[x_idx] * self.H[steps_left-1]
         return w / w.sum() if w.sum() > 0 else self.Pmat[x_idx]
     
-    def naive_sim(self, n_paths=200_000, seed=0):
+    def naive_sim(self, n_paths=200_000, seed=0, chunk=10_000):
         rng = np.random.default_rng(seed)
-        hits = 0
-        for _ in range(n_paths):
-            x = self.start_idx
-            failed = int(self.in_F[x])
+        cum = self.Pmat.cumsum(axis=1)
+        start_failed = bool(self.in_F[self.start_idx])
+
+        hits, done = 0, 0
+        while done < n_paths:
+            k = min(chunk, n_paths - done)
+            cur = np.full(k, self.start_idx, dtype=np.int64)
+            failed = np.full(k, start_failed, dtype=bool)
             for _ in range(self.T):
-                x = rng.choice(self.n_states, p=self.Pmat[x])
-                if self.in_F[x]:
-                    failed = 1
-            hits += failed
+                u = rng.random(k)
+                cur = np.minimum((cum[cur] < u[:, None]).sum(axis=1),
+                                 self.n_states - 1)
+                failed |= (self.in_F[cur] == 1)
+            hits += int(failed.sum())
+            done += k
         return hits / n_paths
 
     def validate(self):
@@ -122,11 +128,19 @@ class DynamicModel:
                 "dp_matches_sim": bool(dp_sim_agree), "sim": sim}
     
 if __name__ == "__main__":
+    # Expect p_fail ~ 6.3e-3.
     cfg = DynamicConfig(
-        N=3, T=5, c=np.array([1.0, 1.0, 1.0]), c_min=1.5,
-        a0=np.array([0.05] * 3), gamma=np.array([0.3] * 3),
-        b0=np.array([0.2] * 3), eta=np.array([0.5] * 3), name="test-3")
+        N=3, T=6, c=np.array([2.0, 1.0, 1.0]), c_min=2.0,
+        a0=np.full(3, 0.0012), gamma=np.full(3, 0.3),
+        b0=np.full(3, 0.3), eta=np.full(3, 0.5), name="ref-N3")
     m = DynamicModel(cfg)
-    v = m.validate()
-    for k, val in v.items():
+    for k, val in m.validate().items():
+        print(f"  {k}: {val}")
+
+    cfg_easy = DynamicConfig(
+        N=3, T=6, c=np.ones(3), c_min=2.0,
+        a0=np.full(3, 0.0012), gamma=np.full(3, 0.3),
+        b0=np.full(3, 0.3), eta=np.full(3, 0.5), name="lumpable-N3")
+    print()
+    for k, val in DynamicModel(cfg_easy).validate().items():
         print(f"  {k}: {val}")
