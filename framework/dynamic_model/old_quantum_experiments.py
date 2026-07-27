@@ -12,7 +12,7 @@ from model import DynamicConfig, DynamicModel
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from estimators import exact_traj_ceiling
+from framework.dynamic_model.old_estimators import exact_traj_ceiling
 
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "figures")
 os.makedirs(OUT, exist_ok=True)

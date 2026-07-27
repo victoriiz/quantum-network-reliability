@@ -25,13 +25,6 @@ Classical tilting misses these correlations because it assumes product-form prop
 - **m = 14 subsystems** → exact enumeration feasible ($2^{14}$ = 16,384 states)
 - Job requests 8 GPUs (nodes 0 and 1), tolerates up to 2 losses, requires connectivity
 
-## Running
-
-```bash
-pip install pennylane numpy
-python run_validation.py
-```
-
 ## Scaling to m = 26 (Benchmark Mode)
 
 For the 8-node benchmark (m = 26), exact statevector is too expensive.
